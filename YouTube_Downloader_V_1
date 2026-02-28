@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""
+YouTube Video Downloader
+A simple script to download YouTube videos using yt-dlp
+默认下载1080p质量
+"""
+
+import sys
+import subprocess
+import os
+
+def check_ytdlp_installed():
+    """Check if yt-dlp is installed"""
+    try:
+        subprocess.run(['yt-dlp', '--version'], 
+                      capture_output=True, 
+                      check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+def install_ytdlp():
+    """Install yt-dlp using pip"""
+    print("yt-dlp not found. Installing...")
+    try:
+        subprocess.run([sys.executable, '-m', 'pip', 'install', 
+                       'yt-dlp', '--break-system-packages'], 
+                      check=True)
+        print("yt-dlp installed successfully!")
+        return True
+    except subprocess.CalledProcessError:
+        print("Failed to install yt-dlp. Please install manually:")
+        print("pip install yt-dlp")
+        return False
+
+def download_video(url, output_path='~/Downloads', overwrite=False):
+    """
+    Download a YouTube video in 1080p quality
+    
+    Args:
+        url: YouTube video URL
+        output_path: Where to save the video
+        overwrite: Whether to overwrite existing files
+    """
+    # Ensure yt-dlp is installed
+    if not check_ytdlp_installed():
+        if not install_ytdlp():
+            return False
+    
+    print(f"\n下载视频: {url}")
+    print(f"质量: 1080p (如果不可用则自动选择最佳质量)")
+    print(f"保存位置: {output_path}")
+    print("-" * 50)
+    
+    # Build the command
+    # 使用更灵活的格式选择器
+    # 优先选择1080p，但不强制要求特定的编码格式
+    cmd = [
+        'yt-dlp',
+        '-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
+        '--merge-output-format', 'mp4',  # 确保输出为mp4格式
+        '-o', f'{output_path}/%(title)s.%(ext)s',
+        '--progress',  # 显示下载进度
+        '--no-mtime',  # 不保留原始修改时间
+        '--extractor-args', 'youtube:player_client=android',  # 使用Android客户端避免nsig问题
+    ]
+    
+    # 如果需要覆盖已存在的文件
+    if overwrite:
+        cmd.append('--no-continue')
+        cmd.append('--force-overwrites')
+    
+    cmd.append(url)
+    
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=False)
+        print("\n" + "=" * 50)
+        print("✓ 下载完成！")
+        print("=" * 50)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"\n✗ 下载出错: {e}")
+        return False
+
+def main():
+    """Main function"""
+    print("=" * 60)
+    print("YouTube 视频下载器 (默认1080p)")
+    print("=" * 60)
+    
+    # Get URL from user or command line
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+    else:
+        url = input("\n请输入YouTube链接: ").strip()
+    
+    if not url:
+        print("错误: 未提供URL")
+        sys.exit(1)
+    
+    # 询问是否覆盖已存在的文件
+    overwrite_choice = input("\n如果文件已存在，是否覆盖? (y/N): ").strip().lower()
+    overwrite = overwrite_choice in ['y', 'yes', '是']
+    
+    # 可选：自定义保存路径
+    custom_path = input("\n保存路径 (直接回车使用 ~/Downloads): ").strip()
+    output_path = custom_path if custom_path else '~/Downloads'
+    
+    # Download the video
+    download_video(url, output_path, overwrite)
+
+if __name__ == "__main__":
+    main()
